@@ -1,0 +1,6 @@
+{
+    "kilo-code.new.autocomplete.provider": "kilo",
+    "kilo-code.new.autocomplete.model": "mercury-edit-2",
+    "kilo-code.new.autocomplete.enableAutoTrigger": false,
+    "kilo-code.new.autocomplete.enableChatAutocomplete": false
+}
