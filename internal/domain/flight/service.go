@@ -6,12 +6,14 @@ import (
 )
 
 type FlightService struct {
-	repo Repository
+	repo     Repository
+	provider FlightProvider
 }
 
-func NewFlightService(repo Repository) *FlightService {
+func NewFlightService(repo Repository, provider FlightProvider) *FlightService {
 	return &FlightService{
-		repo: repo,
+		repo:     repo,
+		provider: provider,
 	}
 }
 

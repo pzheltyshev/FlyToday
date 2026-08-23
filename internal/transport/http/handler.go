@@ -1,4 +1,4 @@
-package api
+package handler
 
 import (
 	"encoding/json"
@@ -55,8 +55,8 @@ func writeJSON(w http.ResponseWriter, data any) {
 	}
 }
 
-func Init(flightHandler *FlightHandler) {
-	http.HandleFunc("GET /api/v1/flight/search", flightHandler.searchFlight)
+func (f *FlightHandler) Init() {
+	http.HandleFunc("GET /api/v1/flight/search", f.searchFlight)
 }
 
 type FlightHandler struct {
