@@ -2,37 +2,28 @@ package flight
 
 import "time"
 
-type flightSegment struct {
-	id               int
-	departureAirport Airport
-	arrivalAirport   Airport
-	departureTime    time.Time
-	arrivalTime      time.Time
-	airline          airline
-	airlineFlight    airlineFlight
+type FlightSegment struct {
+	DepartureAirport AirportRef
+	ArrivalAirport   AirportRef
+	DepartureTime    time.Time
+	ArrivalTime      time.Time
+	Airline          AirlineRef
 }
 
 type Flight struct {
-	id               int
-	departureAirport Airport
-	arrivalAirport   Airport
-	price            float32
-	currency         string
-	segments         []flightSegment
+	Id       int
+	Price    float32
+	Currency string
+	Segments []FlightSegment
 }
 
-type Airport struct {
-	IATAcode string
-	name     string
-	city     string
+type AirportRef struct {
+	IATACode string
+	Name     string
 }
 
-type airline struct {
-	code    string
-	name    string
-	flights []airlineFlight
-}
-
-type airlineFlight struct {
-	number string
+type AirlineRef struct {
+	Code       string
+	Name       string
+	FlightCode string
 }

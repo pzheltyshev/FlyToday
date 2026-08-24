@@ -10,7 +10,7 @@ import (
 type FlightProvider struct {
 }
 
-func NewFlightProvider() *flight.FlightProvider {
+func NewFlightProvider() *FlightProvider {
 
 	return &FlightProvider{}
 }

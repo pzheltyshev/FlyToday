@@ -1,0 +1,5 @@
+CREATE TABLE users(
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name TEXT,
+    email TEXT
+)
