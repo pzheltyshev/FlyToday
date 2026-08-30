@@ -1,10 +1,22 @@
 package postgres
 
 import (
+	"context"
+	"database/sql"
 	"time"
 
 	"github.com/pzheltyshev/FlyToday/internal/domain/flight"
 )
+
+type FlightRepository struct {
+	db *sql.DB
+}
+
+func NewFlightRepository(db *sql.DB) *FlightRepository {
+	return &FlightRepository{
+		db: db,
+	}
+}
 
 type flightRequestRow struct {
 	Id          int
@@ -18,14 +30,15 @@ type flightRequestRow struct {
 
 type segment struct {
 	OriginIATAcode      string
-	OriginName          string
 	DestinationIATAcode string
-	DestinationName     string
 	DateFrom            time.Time
 	DateTo              time.Time
 	AirlineCode         string
-	AirlineName         string
 	FlightCode          string
+}
+
+func NewFlightRequestRow() *flightRequestRow {
+	return &flightRequestRow{}
 }
 
 type airportRow struct {
@@ -70,4 +83,33 @@ func (f *flightRequestRow) toDomain() flight.Flight {
 	}
 
 	return flightData
+}
+
+func (f *flightRequestRow) fromRequest(request flight.FlightSegmentsRaw) {
+
+	f.RequestDate = request.RequestDate
+	f.Price = request.Price
+	f.Currency = request.Currency
+
+	for _, data := range request.Segments {
+		f.Segments = append(f.Segments, segment{
+			OriginIATAcode:      data.Origin,
+			DestinationIATAcode: data.Destination,
+			DateFrom:            data.DateFrom,
+			DateTo:              data.DateTo,
+			AirlineCode:         data.AirlineCode,
+			FlightCode:          data.FlightCode,
+		})
+	}
+
+}
+
+func (f *FlightRepository) SaveRequest(ctx context.Context, flightSegments flight.FlightSegmentsRaw) error {
+
+	flightRequest := NewFlightRequestRow()
+	flightRequest.fromRequest(flightSegments)
+
+	f.db.Query("")
+
+	return nil
 }

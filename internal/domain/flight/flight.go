@@ -27,3 +27,23 @@ type AirlineRef struct {
 	Name       string
 	FlightCode string
 }
+
+type FlightSegmentRaw struct {
+	Origin      string
+	Destination string
+	DateFrom    time.Time
+	DateTo      time.Time
+	AirlineCode string
+	FlightCode  string
+}
+
+type FlightSegmentsRaw struct {
+	RequestDate time.Time
+	Price       float32
+	Currency    string
+	Segments    []FlightSegmentRaw
+}
+
+func ConvSegmentsRawToFlight(SegmentsRaw *FlightSegmentsRaw) Flight {
+
+}

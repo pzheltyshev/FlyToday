@@ -3,23 +3,36 @@ package flight
 import (
 	"context"
 	"time"
+	"log/slog"
 )
 
 type FlightService struct {
-	repo     Repository
-	provider FlightProvider
+	repo     	Repository
+	provider 	FlightProvider
+	logger 		slog.Logger
 }
 
-func NewFlightService(repo Repository, provider FlightProvider) *FlightService {
+func NewFlightService(repo Repository, provider FlightProvider, logger slog.Logger) *FlightService {
 	return &FlightService{
 		repo:     repo,
 		provider: provider,
+		logger: logger,
 	}
 }
 
-func (f *FlightService) SearchFlight(ctx context.Context, departureAirport Airport, arrivalAirport Airport, date time.Time) Flight {
+func (f *FlightService) SearchFlight(ctx context.Context, departureAirport string, arrivalAirport string, date time.Time) Flight {
 
-	return Flight{}
+	flightSegments, err := f.provider.SearchFlight(ctx, departureAirport, arrivalAirport, date)
+
+	if err != nil {
+		return Flight{}
+	}
+
+	f.repo.SaveRequest(flightSegments)
+
+	flight := ConvSegmentsRawToFlight(&flightSegments)
+
+	return flight
 
 }
 
@@ -34,3 +47,5 @@ func (f *FlightService) GetAirportByIAITCode(ctx context.Context, code string) A
 	return airport
 
 }
+
+func 
