@@ -12,7 +12,7 @@ type FlightService struct {
 	logger 		slog.Logger
 }
 
-func NewFlightService(repo Repository, provider FlightProvider, logger slog.Logger) *FlightService {
+func NewFlightService(repo Repository, provider FlightProvider, logger *slog.Logger) *FlightService {
 	return &FlightService{
 		repo:     repo,
 		provider: provider,
