@@ -18,7 +18,7 @@ func NewFlightProvider() *FlightProvider {
 func (f *FlightProvider) SearchFlight(ctx context.Context, departureAirport string, arrivalAirport string, date time.Time) (*flight.FlightSegmentsRaw, error) {
 
 	segments := flight.FlightSegmentsRaw{
-		ResponseDate: time.Date(2026, 8, 23, 20, 10, 0, 0, time.UTC),
+		RequestDate: time.Date(2026, 8, 23, 20, 10, 0, 0, time.UTC),
 		Segments: []flight.FlightSegmentRaw{
 			{
 				Origin:      "LED",

@@ -2,21 +2,21 @@ package flight
 
 import (
 	"context"
-	"time"
 	"log/slog"
+	"time"
 )
 
 type FlightService struct {
-	repo     	Repository
-	provider 	FlightProvider
-	logger 		slog.Logger
+	repo     Repository
+	provider FlightProvider
+	logger   *slog.Logger
 }
 
 func NewFlightService(repo Repository, provider FlightProvider, logger *slog.Logger) *FlightService {
 	return &FlightService{
 		repo:     repo,
 		provider: provider,
-		logger: logger,
+		logger:   logger,
 	}
 }
 
@@ -28,24 +28,63 @@ func (f *FlightService) SearchFlight(ctx context.Context, departureAirport strin
 		return Flight{}
 	}
 
-	f.repo.SaveRequest(flightSegments)
+	//TODO add test on correct flight data (like airport code)
 
-	flight := ConvSegmentsRawToFlight(&flightSegments)
+	err = f.repo.SaveRequest(ctx, flightSegments)
+	if err != nil {
+		f.logger.Error("Error while saving request")
+	}
+
+	flight := f.ConvSegmentsRawToFlight(ctx, flightSegments)
 
 	return flight
 
 }
 
-func (f *FlightService) GetAirportByIAITCode(ctx context.Context, code string) Airport {
+func (f *FlightService) GetAirportRefByIAITCode(ctx context.Context, code string) AirportRef {
 
-	airport, err := f.repo.GetAirportByIAITCode(ctx, code)
+	airport, err := f.repo.GetAirportRefByIAITCode(ctx, code)
 
 	if err != nil {
-		return Airport{}
+		return AirportRef{}
 	}
 
 	return airport
 
 }
 
-func 
+func (f *FlightService) GetAirlineRefFromICAO(ctx context.Context, code string) AirlineRef {
+
+	airline, err := f.repo.GetAirportRefByICAOCode(ctx, code)
+
+	if err != nil {
+		return AirlineRef{}
+	}
+
+	return airline
+
+}
+
+func (f *FlightService) ConvSegmentsRawToFlight(ctx context.Context, SegmentsRaw *FlightSegmentsRaw) Flight {
+
+	flight := Flight{}
+
+	flight.Price = SegmentsRaw.Price
+	flight.Currency = SegmentsRaw.Currency
+
+	for _, data := range SegmentsRaw.Segments {
+
+		origin := f.GetAirportRefByIAITCode(ctx, data.Origin)
+		destination := f.GetAirportRefByIAITCode(ctx, data.Destination)
+		airlineRef := f.GetAirlineRefFromICAO(ctx, data.AirlineCode)
+
+		flight.Segments = append(flight.Segments, FlightSegment{
+			DepartureAirport: origin,
+			ArrivalAirport:   destination,
+			DepartureTime:    data.DateFrom,
+			ArrivalTime:      data.DateTo,
+			Airline:          airlineRef,
+		})
+
+	}
+}

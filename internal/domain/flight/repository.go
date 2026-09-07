@@ -5,5 +5,5 @@ import (
 )
 
 type Repository interface {
-	SaveRequest(ctx context.Context, flightSegments FlightSegmentsRaw) error
+	SaveRequest(ctx context.Context, flightSegments *FlightSegmentsRaw) error
 }

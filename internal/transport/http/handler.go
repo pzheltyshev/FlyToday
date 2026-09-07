@@ -84,10 +84,8 @@ func (h *FlightHandler) searchFlight(w http.ResponseWriter, r *http.Request) {
 	destination := r.URL.Query().Get("destination")
 
 	ctx := r.Context()
-	departureAirport := h.service.GetAirportByIAITCode(ctx, origin)
-	arrivalAirport := h.service.GetAirportByIAITCode(ctx, destination)
 
-	flight := h.service.SearchFlight(ctx, departureAirport, arrivalAirport, date)
+	flight := h.service.SearchFlight(ctx, origin, destination, date)
 
 	writeJSON(w, flight)
 }

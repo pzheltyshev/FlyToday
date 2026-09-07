@@ -25,7 +25,6 @@ type AirportRef struct {
 type AirlineRef struct {
 	Code       string
 	Name       string
-	FlightCode string
 }
 
 type FlightSegmentRaw struct {
@@ -44,6 +43,3 @@ type FlightSegmentsRaw struct {
 	Segments    []FlightSegmentRaw
 }
 
-func ConvSegmentsRawToFlight(SegmentsRaw *FlightSegmentsRaw) Flight {
-
-}

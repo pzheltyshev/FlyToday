@@ -20,7 +20,7 @@ func NewFlightRepository(db *sql.DB) *FlightRepository {
 
 type flightRequestRow struct {
 	Id          int
-	IdUser      int
+	UserId      int
 	UserName    string
 	RequestDate time.Time
 	Price       float32
@@ -39,12 +39,6 @@ type segment struct {
 
 func NewFlightRequestRow() *flightRequestRow {
 	return &flightRequestRow{}
-}
-
-type airportRow struct {
-}
-
-type airlineRow struct {
 }
 
 func (f *flightRequestRow) toDomain() flight.Flight {
@@ -85,7 +79,7 @@ func (f *flightRequestRow) toDomain() flight.Flight {
 	return flightData
 }
 
-func (f *flightRequestRow) fromRequest(request flight.FlightSegmentsRaw) {
+func (f *flightRequestRow) fromRequest(request *flight.FlightSegmentsRaw) {
 
 	f.RequestDate = request.RequestDate
 	f.Price = request.Price
@@ -104,12 +98,117 @@ func (f *flightRequestRow) fromRequest(request flight.FlightSegmentsRaw) {
 
 }
 
-func (f *FlightRepository) SaveRequest(ctx context.Context, flightSegments flight.FlightSegmentsRaw) error {
+func (f *FlightRepository) SaveRequest(ctx context.Context, flightSegments *flight.FlightSegmentsRaw) error {
 
 	flightRequest := NewFlightRequestRow()
 	flightRequest.fromRequest(flightSegments)
 
-	f.db.Query("")
+	tx, err := f.db.BeginTx(ctx, nil)
+
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		_ = tx.Rollback()
+	}()
+
+	var requestId int
+
+	err = tx.QueryRowContext(ctx, `
+		INSERT INTO flight_requests(
+			user_id,
+			price,
+			currency
+		)
+		VALUES($1, $2, $3)
+		RETURNING id
+	`,
+		flightRequest.UserId,
+		flightRequest.Price,
+		flightRequest.Currency,
+	).Scan(&requestId)
+
+	if err != nil {
+		return err
+	}
+
+	flightRequest.Id = requestId
+
+	for i, data := range flightRequest.Segments {
+		_, err = tx.QueryContext(ctx, `
+			INSERT INTO flight_segments(
+				flight_request_id,
+				departure_airport_id,
+				arrival_airport_id,
+				departure_at,
+				arrival_at,
+				airline_code,
+				segment_order
+			)
+		`,
+			flightRequest.Id,
+			data.OriginIATAcode,
+			data.DestinationIATAcode,
+			data.DateFrom,
+			data.DateTo,
+			data.AirlineCode,
+			i,
+		)
+
+		if err != nil {
+			return err
+		}
+	}
+
+	if err = tx.Commit(); err != nil {
+		return err
+	}
 
 	return nil
+}
+
+func (f *FlightRepository) GetAirportRefByIAITCode(ctx context.Context, code string) flight.AirportRef {
+
+	airportRef := flight.AirportRef{}
+
+	err := f.db.QueryRowContext(ctx, `
+		SELECT iata_code, icao_code
+		FROM airports
+		WHERE iata_code = $1
+	`,
+		code,
+	).Scan(
+		airportRef.IATACode,
+		airportRef.Name,
+	)
+
+	if err != nil {
+		return flight.AirportRef{}
+	}
+
+	return airportRef
+}
+
+func (f *FlightRepository) GetAirlineRefFromICAO(ctx context.Context, code string) flight.AirlineRef {
+
+	airlineRef := flight.AirlineRef{}
+
+	err := f.db.QueryRowContext(ctx, `
+		SELECT icao_code, name
+		FROM airlines
+		WHERE icao_code = $1
+	`,
+		code,
+	).Scan(
+		airlineRef.Code,
+		airlineRef.Name,
+	)
+
+	if err != nil {
+		return flight.AirlineRef{}
+	}
+
+	return airlineRef
+
 }
