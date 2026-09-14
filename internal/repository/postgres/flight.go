@@ -23,9 +23,15 @@ type flightRequestRow struct {
 	UserId      int
 	UserName    string
 	RequestDate time.Time
-	Price       float32
-	Currency    string
-	Segments    []segment
+	Flights     []flightProvider
+}
+
+type flightProvider struct {
+	Id       int
+	Provider string
+	Price    float32
+	Currency string
+	Segments []segment
 }
 
 type segment struct {
@@ -41,67 +47,73 @@ func NewFlightRequestRow() *flightRequestRow {
 	return &flightRequestRow{}
 }
 
-func (f *flightRequestRow) toDomain() flight.Flight {
+func (f *flightRequestRow) toDomain() []flight.Flight {
 
-	flightData := flight.Flight{}
+	result := make([]flight.Flight, 0, len(f.Flights))
 
-	flightData.Id = f.Id
-	flightData.Currency = f.Currency
-	flightData.Price = f.Price
+	for i, data := range f.Flights {
 
-	for _, data := range f.Segments {
-
-		originRef := flight.AirportRef{
-			IATACode: data.OriginIATAcode,
-			Name:     data.OriginName,
-		}
-
-		destinationRef := flight.AirportRef{
-			IATACode: data.DestinationIATAcode,
-			Name:     data.DestinationName,
-		}
-
-		airline := flight.AirlineRef{
-			Code:       data.AirlineCode,
-			Name:       data.AirlineName,
-			FlightCode: data.FlightCode,
-		}
-
-		flightData.Segments = append(flightData.Segments, flight.FlightSegment{
-			DepartureAirport: originRef,
-			ArrivalAirport:   destinationRef,
-			DepartureTime:    data.DateFrom,
-			ArrivalTime:      data.DateTo,
-			Airline:          airline,
+		result = append(result, flight.Flight{
+			Currency: data.Currency,
+			Price:    data.Price,
+			Provider: data.Provider,
+			Segments: make([]flight.FlightSegment, 0, len(data.Segments)),
 		})
+
+		for _, s := range data.Segments {
+			result[i].Segments = append(result[i].Segments, flight.FlightSegment{
+
+				DepartureAirport: flight.AirportRef{
+					IATACode: s.OriginIATAcode,
+				},
+				ArrivalAirport: flight.AirportRef{
+					IATACode: s.DestinationIATAcode,
+				},
+				DepartureTime: s.DateFrom,
+				ArrivalTime:   s.DateTo,
+				Airline: flight.AirlineRef{
+					Code: s.AirlineCode,
+				},
+			})
+		}
 	}
 
-	return flightData
+	return result
 }
 
-func (f *flightRequestRow) fromRequest(request *flight.FlightSegmentsRaw) {
+func (f *flightRequestRow) fromRequest(date time.Time, request []flight.FlightSegmentsRaw) {
 
-	f.RequestDate = request.RequestDate
-	f.Price = request.Price
-	f.Currency = request.Currency
+	f.RequestDate = date
 
-	for _, data := range request.Segments {
-		f.Segments = append(f.Segments, segment{
-			OriginIATAcode:      data.Origin,
-			DestinationIATAcode: data.Destination,
-			DateFrom:            data.DateFrom,
-			DateTo:              data.DateTo,
-			AirlineCode:         data.AirlineCode,
-			FlightCode:          data.FlightCode,
+	for i, data := range request {
+
+		f.Flights = append(f.Flights, flightProvider{
+
+			Price:    data.Price,
+			Currency: data.Currency,
+			Provider: data.Provider,
+			Segments: make([]segment, 0, len(data.Segments)),
 		})
+
+		for _, s := range data.Segments {
+			f.Flights[i].Segments = append(f.Flights[i].Segments, segment{
+				OriginIATAcode:      s.Origin,
+				DestinationIATAcode: s.Destination,
+				DateFrom:            s.DateFrom,
+				DateTo:              s.DateTo,
+				AirlineCode:         s.AirlineCode,
+				FlightCode:          s.FlightCode,
+			})
+		}
+
 	}
 
 }
 
-func (f *FlightRepository) SaveRequest(ctx context.Context, flightSegments *flight.FlightSegmentsRaw) error {
+func (f *FlightRepository) SaveRequest(ctx context.Context, requestDate time.Time, flightSegments []flight.FlightSegmentsRaw) error {
 
 	flightRequest := NewFlightRequestRow()
-	flightRequest.fromRequest(flightSegments)
+	flightRequest.fromRequest(requestDate, flightSegments)
 
 	tx, err := f.db.BeginTx(ctx, nil)
 
@@ -118,15 +130,13 @@ func (f *FlightRepository) SaveRequest(ctx context.Context, flightSegments *flig
 	err = tx.QueryRowContext(ctx, `
 		INSERT INTO flight_requests(
 			user_id,
-			price,
-			currency
+			request_date
 		)
-		VALUES($1, $2, $3)
+		VALUES($1, $2)
 		RETURNING id
 	`,
 		flightRequest.UserId,
-		flightRequest.Price,
-		flightRequest.Currency,
+		flightRequest.RequestDate,
 	).Scan(&requestId)
 
 	if err != nil {
@@ -135,30 +145,54 @@ func (f *FlightRepository) SaveRequest(ctx context.Context, flightSegments *flig
 
 	flightRequest.Id = requestId
 
-	for i, data := range flightRequest.Segments {
-		_, err = tx.QueryContext(ctx, `
-			INSERT INTO flight_segments(
-				flight_request_id,
-				departure_airport_id,
-				arrival_airport_id,
-				departure_at,
-				arrival_at,
-				airline_code,
-				segment_order
+	for _, data := range flightRequest.Flights {
+
+		err = tx.QueryRowContext(ctx, `
+			INSERT INTO flights(
+				price,
+				currency,
+				provider
 			)
+			VALUES($1, $2, $3)
+			RETURNING id
 		`,
-			flightRequest.Id,
-			data.OriginIATAcode,
-			data.DestinationIATAcode,
-			data.DateFrom,
-			data.DateTo,
-			data.AirlineCode,
-			i,
-		)
+			data.Currency,
+			data.Price,
+			data.Provider,
+		).Scan(&requestId)
 
 		if err != nil {
 			return err
 		}
+
+		data.Id = requestId
+
+		for i, s := range data.Segments {
+			_, err = tx.QueryContext(ctx, `
+				INSERT INTO flight_segments(
+					flight_request_id,
+					departure_airport_id,
+					arrival_airport_id,
+					departure_at,
+					arrival_at,
+					airline_code,
+					segment_order
+				)
+			`,
+				flightRequest.Id,
+				s.OriginIATAcode,
+				s.DestinationIATAcode,
+				s.DateFrom,
+				s.DateTo,
+				s.AirlineCode,
+				i,
+			)
+
+			if err != nil {
+				return err
+			}
+		}
+
 	}
 
 	if err = tx.Commit(); err != nil {
@@ -168,7 +202,7 @@ func (f *FlightRepository) SaveRequest(ctx context.Context, flightSegments *flig
 	return nil
 }
 
-func (f *FlightRepository) GetAirportRefByIAITCode(ctx context.Context, code string) flight.AirportRef {
+func (f *FlightRepository) GetAirportRefByIATACode(ctx context.Context, code string) (flight.AirportRef, error) {
 
 	airportRef := flight.AirportRef{}
 
@@ -179,18 +213,18 @@ func (f *FlightRepository) GetAirportRefByIAITCode(ctx context.Context, code str
 	`,
 		code,
 	).Scan(
-		airportRef.IATACode,
-		airportRef.Name,
+		&airportRef.IATACode,
+		&airportRef.Name,
 	)
 
 	if err != nil {
-		return flight.AirportRef{}
+		return flight.AirportRef{}, err
 	}
 
-	return airportRef
+	return airportRef, nil
 }
 
-func (f *FlightRepository) GetAirlineRefFromICAO(ctx context.Context, code string) flight.AirlineRef {
+func (f *FlightRepository) GetAirlineRefFromICAO(ctx context.Context, code string) (flight.AirlineRef, error) {
 
 	airlineRef := flight.AirlineRef{}
 
@@ -201,14 +235,14 @@ func (f *FlightRepository) GetAirlineRefFromICAO(ctx context.Context, code strin
 	`,
 		code,
 	).Scan(
-		airlineRef.Code,
-		airlineRef.Name,
+		&airlineRef.Code,
+		&airlineRef.Name,
 	)
 
 	if err != nil {
-		return flight.AirlineRef{}
+		return flight.AirlineRef{}, err
 	}
 
-	return airlineRef
+	return airlineRef, nil
 
 }

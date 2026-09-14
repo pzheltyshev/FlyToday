@@ -7,6 +7,8 @@ import (
 	"github.com/pzheltyshev/FlyToday/internal/domain/flight"
 )
 
+const provider = "mock_provider"
+
 type FlightProvider struct {
 }
 
@@ -15,10 +17,13 @@ func NewFlightProvider() *FlightProvider {
 	return &FlightProvider{}
 }
 
-func (f *FlightProvider) SearchFlight(ctx context.Context, departureAirport string, arrivalAirport string, date time.Time) (*flight.FlightSegmentsRaw, error) {
+func (f *FlightProvider) SearchFlight(ctx context.Context, departureAirport string, arrivalAirport string, date time.Time) ([]flight.FlightSegmentsRaw, error) {
 
-	segments := flight.FlightSegmentsRaw{
+	var segments []flight.FlightSegmentsRaw
+
+	segments = append(segments, flight.FlightSegmentsRaw{
 		RequestDate: time.Date(2026, 8, 23, 20, 10, 0, 0, time.UTC),
+		Provider:    provider,
 		Segments: []flight.FlightSegmentRaw{
 			{
 				Origin:      "LED",
@@ -35,8 +40,8 @@ func (f *FlightProvider) SearchFlight(ctx context.Context, departureAirport stri
 				AirlineCode: "MU",
 			},
 		},
-	}
+	})
 
-	return &segments, nil
+	return segments, nil
 
 }

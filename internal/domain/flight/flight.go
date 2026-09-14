@@ -14,6 +14,7 @@ type Flight struct {
 	Id       int
 	Price    float32
 	Currency string
+	Provider string
 	Segments []FlightSegment
 }
 
@@ -23,8 +24,8 @@ type AirportRef struct {
 }
 
 type AirlineRef struct {
-	Code       string
-	Name       string
+	Code string
+	Name string
 }
 
 type FlightSegmentRaw struct {
@@ -37,9 +38,9 @@ type FlightSegmentRaw struct {
 }
 
 type FlightSegmentsRaw struct {
+	Provider    string
 	RequestDate time.Time
 	Price       float32
 	Currency    string
 	Segments    []FlightSegmentRaw
 }
-

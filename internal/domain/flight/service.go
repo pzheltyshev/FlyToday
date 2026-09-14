@@ -22,6 +22,8 @@ func NewFlightService(repo Repository, provider FlightProvider, logger *slog.Log
 
 func (f *FlightService) SearchFlight(ctx context.Context, departureAirport string, arrivalAirport string, date time.Time) Flight {
 
+	requestDate := time.Now()
+
 	flightSegments, err := f.provider.SearchFlight(ctx, departureAirport, arrivalAirport, date)
 
 	if err != nil {
@@ -30,7 +32,7 @@ func (f *FlightService) SearchFlight(ctx context.Context, departureAirport strin
 
 	//TODO add test on correct flight data (like airport code)
 
-	err = f.repo.SaveRequest(ctx, flightSegments)
+	err = f.repo.SaveRequest(ctx, requestDate, flightSegments)
 	if err != nil {
 		f.logger.Error("Error while saving request")
 	}
@@ -41,9 +43,9 @@ func (f *FlightService) SearchFlight(ctx context.Context, departureAirport strin
 
 }
 
-func (f *FlightService) GetAirportRefByIAITCode(ctx context.Context, code string) AirportRef {
+func (f *FlightService) GetAirportRefByIATACode(ctx context.Context, code string) AirportRef {
 
-	airport, err := f.repo.GetAirportRefByIAITCode(ctx, code)
+	airport, err := f.repo.GetAirportRefByIATACode(ctx, code)
 
 	if err != nil {
 		return AirportRef{}
@@ -55,7 +57,7 @@ func (f *FlightService) GetAirportRefByIAITCode(ctx context.Context, code string
 
 func (f *FlightService) GetAirlineRefFromICAO(ctx context.Context, code string) AirlineRef {
 
-	airline, err := f.repo.GetAirportRefByICAOCode(ctx, code)
+	airline, err := f.repo.GetAirlineRefFromICAO(ctx, code)
 
 	if err != nil {
 		return AirlineRef{}
@@ -74,8 +76,8 @@ func (f *FlightService) ConvSegmentsRawToFlight(ctx context.Context, SegmentsRaw
 
 	for _, data := range SegmentsRaw.Segments {
 
-		origin := f.GetAirportRefByIAITCode(ctx, data.Origin)
-		destination := f.GetAirportRefByIAITCode(ctx, data.Destination)
+		origin := f.GetAirportRefByIATACode(ctx, data.Origin)
+		destination := f.GetAirportRefByIATACode(ctx, data.Destination)
 		airlineRef := f.GetAirlineRefFromICAO(ctx, data.AirlineCode)
 
 		flight.Segments = append(flight.Segments, FlightSegment{
@@ -87,4 +89,6 @@ func (f *FlightService) ConvSegmentsRawToFlight(ctx context.Context, SegmentsRaw
 		})
 
 	}
+
+	return flight
 }
